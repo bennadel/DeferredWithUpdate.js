@@ -1,0 +1,139 @@
+<!doctype html>
+<html ng-app="Demo">
+<head>
+	<meta charset="utf-8" />
+	<title>Using DeferredWithUpdate.js And AngularJS</title>
+</head>
+<body ng-controller="FriendsController">
+
+	<h1>
+		Using DeferredWithUpdate.js And AngularJS
+	</h1>
+
+	<h2>
+		Here is my friend: (AJAX Response)
+	</h2>
+
+	<p>
+		ID: {{ friend.id }}<br />
+		Name: {{ friend.name }}
+	</p>
+
+
+	<!-- Load AngularJS from the Google CDN. -->
+	<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/angularjs/1.0.2/angular.min.js"></script>
+	
+	<!-- Load our deferred module. -->
+	<script type="text/javascript" src="../lib/deferred-with-update.js"></script>
+
+	<!-- Configure our demo module. -->
+	<script type="text/javascript">
+
+
+		// Define our demo module and indicate that the deferred module needs to 
+		// be loaded before this demo can run.
+		var app = angular.module( "Demo", [ "DeferredWithUpdate" ] );
+
+
+		// Define our friend controller. This will consume the new deferred.
+		app.controller(
+			"FriendsController",
+			function( $scope, friendService ) {
+
+
+				// Since AngularJS knowns how to display a deferred object, we can simply
+				// assign our promise to the friend objet. When it is resolved, AngularJS 
+				// will render correctly.
+				$scope.friend = friendService.getByID( 1 );
+
+				// Listen for both resolve and reject outcomes so we can demonstrate the
+				// behavior when caching is both used and not used.
+				$scope.friend.then(
+					function( friend ) {
+
+						// Overwrite the friend.
+						$scope.friend = friend;
+
+					},
+					function() {
+
+						// Something went wrong, couldn't locate the friend.
+						alert( "Ooops, 404 - redirect user." );
+
+					}
+				);
+
+				// Since we are probably dealing with locally-cached data, we'll want to 
+				// make sure this doesn't actually end up being a 404 HTTP status code.
+				$scope.friend.mistake(
+					function() {
+
+						alert( "Ooops, 404 on MISTAKE - redirect user." );
+
+					}
+				);
+
+
+			}
+		);
+
+
+		// Define our friend service - this is where we are going to use caching and our
+		// updatable deferred.
+		app.service(
+			"friendService",
+			function( $timeout, DeferredWithUpdate ) {
+
+
+				// Define the cached data.
+				var cachedData = [
+					{
+						id: 1,
+						name: "Joanna"
+					}
+				];
+
+
+				// Define our getByID() method. Since we don't really have a server in this demo,
+				// we're going to use $timeout to simulate network latency. We'll immediately 
+				// resolve the deferred with the cache data; then, we'll "mistake" the deferred
+				// with our 404 response.
+				this.getByID = function( id ) {
+
+					// Create our decorated deferred object.
+					var deferred = DeferredWithUpdate.defer();
+
+					// Simulate an eventual 404 response.
+					$timeout(
+						function() {
+
+							deferred.reject({
+								status: 404
+							});
+
+						},
+						2000
+					);
+
+					// Before the server comes back, resolve the deferred object with the locally
+					// cached data.
+					// 
+					// ****************************************************************************
+					// NOTE: Demo works when you comment this line out. 
+					// ****************************************************************************
+					deferred.resolve( cachedData[ 0 ] );
+
+					// Return the promise.
+					return( deferred.promise );
+
+				};
+
+
+			}
+		);
+
+
+	</script>
+
+</body>
+</html>
